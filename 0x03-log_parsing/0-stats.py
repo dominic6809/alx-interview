@@ -9,62 +9,60 @@ Script that reads stdin line by line and computes metrics:
     * Number of lines by status code in ascending order
 """
 import sys
+import signal
+import re
 
+# Initialize variables
+total_size = 0
+status_codes = {200: 0, 301: 0, 400: 0, 401: 0, 403: 0, 404: 0, 405: 0, 500: 0}
+line_count = 0
 
-def print_stats(total_size, status_codes):
-    """
-    Print statistics of parsed log entries.
-
-    Args:
-        total_size (int): Total sum of file sizes
-        status_codes (dict): Count of HTTP status codes
-    """
-    print("File size: {}".format(total_size))
+def print_stats():
+    """Print the computed statistics."""
+    print(f"File size: {total_size}")
     for code in sorted(status_codes.keys()):
         if status_codes[code] > 0:
-            print("{}: {}".format(code, status_codes[code]))
+            print(f"{code}: {status_codes[code]}")
 
+def signal_handler(sig, frame):
+    """Handle keyboard interruption (CTRL + C)."""
+    print_stats()
+    sys.exit(0)
 
-def main():
-    """Process log entries from stdin and compute metrics."""
-    total_size = 0
-    line_count = 0
-    status_codes = {
-        200: 0, 301: 0, 400: 0, 401: 0,
-        403: 0, 404: 0, 405: 0, 500: 0
-    }
+# Register the signal handler
+signal.signal(signal.SIGINT, signal_handler)
 
-    try:
-        for line in sys.stdin:
-            line_count += 1
-            try:
-                # Split line and extract relevant parts
-                parts = line.split()
-                # Verify line matches expected format
-                if len(parts) > 2:
-                    status = int(parts[-2])
-                    file_size = int(parts[-1])
-                    # Update metrics
-                    if status in status_codes:
-                        status_codes[status] += 1
-                    total_size += file_size
+# Regular expression pattern for log line validation
+pattern = r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3} - \[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+\] "GET /projects/260 HTTP/1.1" (\d{3}) (\d+)$'
 
-            except (IndexError, ValueError):
-                # Skip line if it doesn't match expected format
-                pass
-
-            # Print statistics every 10 lines
-            if line_count % 10 == 0:
-                print_stats(total_size, status_codes)
-
-    except KeyboardInterrupt:
-        # Handle keyboard interruption (CTRL + C)
-        print_stats(total_size, status_codes)
-        raise
-
-    # Print final statistics if not interrupted
-    print_stats(total_size, status_codes)
-
-
-if __name__ == "__main__":
-    main()
+try:
+    for line in sys.stdin:
+        try:
+            # Remove trailing whitespace
+            line = line.strip()
+            
+            # Match the line against the pattern
+            match = re.match(pattern, line)
+            if match:
+                # Extract status code and file size
+                status_code = int(match.group(1))
+                file_size = int(match.group(2))
+                
+                # Update metrics
+                if status_code in status_codes:
+                    status_codes[status_code] += 1
+                total_size += file_size
+                line_count += 1
+                
+                # Print stats every 10 lines
+                if line_count % 10 == 0:
+                    print_stats()
+            
+        except (ValueError, IndexError):
+            # Skip lines that don't match the expected format
+            continue
+            
+except KeyboardInterrupt:
+    # Handle keyboard interruption
+    print_stats()
+    sys.exit(0)
