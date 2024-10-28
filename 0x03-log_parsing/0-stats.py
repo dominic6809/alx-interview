@@ -14,7 +14,6 @@ import sys
 def print_stats(total_size, status_codes):
     """
     Print statistics of parsed log entries.
-
     Args:
         total_size (int): Total sum of file sizes
         status_codes (dict): Count of HTTP status codes
@@ -36,33 +35,32 @@ def main():
 
     try:
         for line in sys.stdin:
-            line_count += 1
             try:
                 # Split line and extract relevant parts
                 parts = line.split()
-                # Verify line matches expected format
-                if len(parts) > 2:
-                    status = int(parts[-2])
-                    file_size = int(parts[-1])
-                    # Update metrics
-                    if status in status_codes:
-                        status_codes[status] += 1
-                    total_size += file_size
+                if len(parts) >= 7:  # Ensure we have all required parts
+                    # Check if the line format matches expected pattern
+                    if ('"GET /projects/260 HTTP/1.1"' in line and
+                            parts[-2].isdigit() and parts[-1].isdigit()):
+                        status = int(parts[-2])
+                        file_size = int(parts[-1])
+                        # Update metrics only if status code is valid
+                        if status in status_codes:
+                            status_codes[status] += 1
+                            total_size += file_size
+                            line_count += 1
+
+                        # Print statistics every 10 lines
+                        if line_count % 10 == 0:
+                            print_stats(total_size, status_codes)
 
             except (IndexError, ValueError):
-                # Skip line if it doesn't match expected format
-                pass
-
-            # Print statistics every 10 lines
-            if line_count % 10 == 0:
-                print_stats(total_size, status_codes)
+                continue
 
     except KeyboardInterrupt:
-        # Handle keyboard interruption (CTRL + C)
         print_stats(total_size, status_codes)
         raise
 
-    # Print final statistics if not interrupted
     print_stats(total_size, status_codes)
 
 
