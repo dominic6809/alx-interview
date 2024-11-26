@@ -7,14 +7,17 @@ Function to determine the fewest number of coins needed to meet a total amount
 def makeChange(coins, total):
     if total <= 0:
         return 0
-
-    # Initialize dp array with infinity
-    dp = [float('inf')] * (total + 1)
-    dp[0] = 0  # No coins needed to make 0
-
-    for coin in coins:
-        for i in range(coin, total + 1):
-            dp[i] = min(dp[i], dp[i - coin] + 1)
-
-    # If dp[total] is still infinity, return -1
-    return dp[total] if dp[total] != float('inf') else -1
+    remainder = total
+    coins_count = 0
+    coin_idx = 0
+    sorted_coins = sorted(coins, reverse=True)
+    n = len(coins)
+    while remainder > 0:
+        if coin_idx >= n:
+            return -1
+        if remainder - sorted_coins[coin_idx] >= 0:
+            remainder -= sorted_coins[coin_idx]
+            coins_count += 1
+        else:
+            coin_idx += 1
+    return coins_count
